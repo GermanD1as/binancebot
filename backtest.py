@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 ╔══════════════════════════════════════════════════════════════╗
 ║           CRYPTO BACKTEST FRAMEWORK — v1.1                  ║
