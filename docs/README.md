@@ -59,6 +59,28 @@ Ejecuta cada 15 minutos (sincronizado con velas de Binance):
 */15 * * * * cd /ruta/del/proyecto && python live.py --strategy rsi >> logs/rsi.log 2>&1
 ```
 
+### Verificación
+
+```bash
+# Estado del bot (posiciones, PnL, trades)
+python3 -c "
+import pickle, os
+p='cache/live_grid_BNB_USDT.pkl'
+if os.path.exists(p):
+    st=pickle.load(open(p,'rb'))
+    t=st['pnl_history']
+    w=sum(1 for x in t if x>0)
+    print(f'Trades: {len(t)} | Win: {w/len(t)*100:.0f}% | PnL: \${sum(t):.2f}' if t else 'Sin trades aun')
+    print(f'Cash: \${st[\"cash\"]:.2f} | Posiciones: {len(st[\"positions\"])}')
+"
+
+# Últimas líneas del log
+tail -5 logs/grid_$(date +%Y%m%d).log
+
+# Cache de datos
+ls -lh cache/*.pkl | grep -v live
+```
+
 ## Estrategias validadas (walk-forward 9 ventanas, BNB 365d)
 
 | Estrategia | Wins | IS:Sh | OOS:Sh | OOS:PF | Alloc |
