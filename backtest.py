@@ -87,6 +87,9 @@ def fetch_ohlcv(pair: str, interval: str, days: int, use_cache: bool = True) -> 
         return df
 
     exchange = ccxt.binance({"enableRateLimit": True})
+    proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
+    if proxy:
+        exchange.proxies = {"https": proxy, "http": proxy}
     since_ms = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
     print(f"{CYAN}⬇  Descargando {pair} [{interval}] — últimos {days} días...{RESET}")
 
@@ -96,7 +99,7 @@ def fetch_ohlcv(pair: str, interval: str, days: int, use_cache: bool = True) -> 
             try:
                 batch = exchange.fetch_ohlcv(pair, interval, since=since_ms, limit=1000)
                 break
-            except (ccxt.NetworkError, ccxt.RateLimitError) as e:
+            except ccxt.NetworkError as e:
                 if attempt == 2:
                     print(f"{RED} Error tras 3 intentos: {e}{RESET}")
                     raise

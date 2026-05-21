@@ -57,6 +57,9 @@ class LiveBot:
                 "apiKey": key, "secret": secret,
                 "enableRateLimit": True, "options": {"defaultType": "spot"},
             })
+            proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
+            if proxy:
+                self.exchange.proxies = {"https": proxy, "http": proxy}
             self.exchange.set_sandbox_mode(True)
 
         self.state = self._load_state()
