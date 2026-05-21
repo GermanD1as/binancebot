@@ -1,0 +1,33 @@
+name: Bot Testnet
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install ccxt pandas numpy ta colorama tabulate
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: cache/
+          key: bot-state
+
+      - run: python live.py --dry-run 2>&1
+        env:
+          BINANCE_TESTNET_API_KEY: ${{ secrets.BINANCE_TESTNET_API_KEY }}
+          BINANCE_TESTNET_API_SECRET: ${{ secrets.BINANCE_TESTNET_API_SECRET }}
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: cache/
+          key: bot-state
