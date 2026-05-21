@@ -1,0 +1,9 @@
+cache/
+logs/
+__pycache__/
+*.pyc
+.env
+*.pkl
+.DS_Store
+.pytest_cache/
+python-*.pkg
