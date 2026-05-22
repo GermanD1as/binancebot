@@ -24,8 +24,13 @@ import requests
 
 from backtest import fetch_ohlcv, add_indicators, add_mtf_trend
 
-GIT_REV = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip() or "?"
-GIT_DATE = subprocess.run(["git", "log", "-1", "--format=%ci"], capture_output=True, text=True).stdout.strip() or "?"
+def _git_out(cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, errors="replace").stdout.strip()
+    except Exception:
+        return "?"
+GIT_REV = _git_out(["git", "rev-parse", "--short", "HEAD"])
+GIT_DATE = _git_out(["git", "log", "-1", "--format=%ci"])
 
 def _notify(msg: str):
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -138,8 +143,10 @@ class LiveBot:
         try:
             self.run()
         except Exception as e:
+            import traceback
             ts = datetime.now().strftime("%Y-%m-%d %H:%M")
             print(f"[{ts}] ERROR: {e}")
+            traceback.print_exc()
             _notify(f"⚠️ {self.strategy.upper()} ERROR: {e}")
             self._save_state()
 

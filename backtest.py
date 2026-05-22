@@ -77,13 +77,17 @@ def _cache_valid(path: str) -> bool:
 
 MARKETS_CACHE = f"{CACHE_DIR}/_markets.pkl"
 
-def _cache_markets(exchange) -> dict | None:
+def _cache_markets(exchange):
     now = time.time()
     if os.path.exists(MARKETS_CACHE) and now - os.path.getmtime(MARKETS_CACHE) < 86400:
-        with open(MARKETS_CACHE, "rb") as f:
-            return pickle.load(f)
+        try:
+            with open(MARKETS_CACHE, "rb") as f:
+                return pickle.load(f)
+        except Exception:
+            os.remove(MARKETS_CACHE)
     try:
         mk = exchange.fetch_markets()
+        os.makedirs(CACHE_DIR, exist_ok=True)
         with open(MARKETS_CACHE, "wb") as f:
             pickle.dump(mk, f)
         return mk
