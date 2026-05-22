@@ -13,6 +13,7 @@ Uso:
 import argparse
 import os
 import pickle
+import subprocess
 import sys
 from datetime import datetime, timezone
 
@@ -21,6 +22,9 @@ import numpy as np
 import pandas as pd
 
 from backtest import fetch_ohlcv, add_indicators, add_mtf_trend
+
+GIT_REV = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip() or "?"
+GIT_DATE = subprocess.run(["git", "log", "-1", "--format=%ci"], capture_output=True, text=True).stdout.strip() or "?"
 
 CACHE_DIR = "cache"
 CONFIG = {
@@ -92,15 +96,19 @@ class LiveBot:
         trend = int(row["trend_1h"])
         rsi = float(row["rsi"])
         ema20 = float(row["ema20"])
-        ts = datetime.now().strftime("%H:%M")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+        n_trades = len(self.state.get("pnl_history", []))
+        print(f"[{ts}] v{GIT_REV} | {self.strategy} | cash=${self.state['cash']:.2f} | pos={len(self.state['positions'])}")
 
-        print(f"[{ts}] {self.pair} ${price:.2f}  trend={trend}  rsi={rsi:.0f}  ema20={ema20:.2f}")
+        print(f"[{ts}] {self.pair} ${price:.2f}  trend={trend}  rsi={rsi:.0f}  ema20={ema20:.2f}  sep={abs(price/ema20-1)*100:.2f}%")
 
         if self.strategy == "grid":
-            self._grid(price, ema20, trend, row)
+            no_signal = self._grid(price, ema20, trend, row)
         elif self.strategy == "rsi":
-            self._rsi(price, trend, rsi)
+            no_signal = self._rsi(price, trend, rsi)
 
+        if no_signal and n_trades == len(self.state.get("pnl_history", [])):
+            print(f"  Sin señal — esperando oportunidad")
         self._report()
         self._save_state()
 
@@ -117,20 +125,25 @@ class LiveBot:
                 self._close(key, price, "TP" if price <= p["tp"] else "SL")
 
         # Entries
+        entered = False
         if trend != -1:  # not bearish → allow long
             for j in range(CONFIG["n_levels"]):
                 k = f"B{j}"
                 if k not in pos and price <= ema20 * (1 - sp * (j + 1)):
                     self._open(k, "long", price)
+                    entered = True
         if trend != 1:  # not bullish → allow short
             for j in range(CONFIG["n_levels"]):
                 k = f"S{j}"
                 if k not in pos and price >= ema20 * (1 + sp * (j + 1)):
                     self._open(k, "short", price)
+                    entered = True
+        return not entered and not pos
 
     # ── RSI ──
     def _rsi(self, price: float, trend: int, rsi: float):
         pos = self.state["positions"]
+        entered = False
 
         for key, p in list(pos.items()):
             sl = p["entry"] * (1 - CONFIG["stop_loss_pct"]) if p["side"] == "long" else p["entry"] * (1 + CONFIG["stop_loss_pct"])
@@ -144,8 +157,11 @@ class LiveBot:
         if not pos:
             if trend != -1 and rsi < CONFIG["rsi_os"]:
                 self._open("LONG", "long", price)
+                entered = True
             elif trend != 1 and rsi > CONFIG["rsi_ob"]:
                 self._open("SHORT", "short", price)
+                entered = True
+        return not entered and not pos
 
     # ── Order helpers ──
     def _open(self, key: str, side: str, price: float):

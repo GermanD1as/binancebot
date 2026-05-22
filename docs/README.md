@@ -81,6 +81,17 @@ tail -5 logs/grid_$(date +%Y%m%d).log
 ls -lh cache/*.pkl | grep -v live
 ```
 
+## Validación multi-par (walk-forward 9 ventanas, 365d)
+
+| Par | Grid wins | RSI wins | Mejor estrategia |
+|---|---|---|---|
+| **BNB/USDT** | **6/9** | **5/9** | Grid |
+| BTC/USDT | 0/9 | 2/9 | Ninguna |
+| ETH/USDT | 1/9 | 2/9 | Ninguna |
+| SOL/USDT | 1/9 | 4/9 | RSI (marginal) |
+
+**Conclusión:** Grid y RSI solo son consistentes en BNB. Las estrategias están calibradas para su dinámica específica. No operar en otros pares sin recalibrar.
+
 ## Estrategias validadas (walk-forward 9 ventanas, BNB 365d)
 
 | Estrategia | Wins | IS:Sh | OOS:Sh | OOS:PF | Alloc |
