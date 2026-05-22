@@ -20,11 +20,23 @@ from datetime import datetime, timezone
 import ccxt
 import numpy as np
 import pandas as pd
+import requests
 
 from backtest import fetch_ohlcv, add_indicators, add_mtf_trend
 
 GIT_REV = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip() or "?"
 GIT_DATE = subprocess.run(["git", "log", "-1", "--format=%ci"], capture_output=True, text=True).stdout.strip() or "?"
+
+def _notify(msg: str):
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    chat = os.environ.get("TELEGRAM_CHAT_ID")
+    if token and chat:
+        try:
+            requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                          json={"chat_id": chat, "text": msg, "parse_mode": "HTML"},
+                          timeout=5)
+        except Exception:
+            pass
 
 CACHE_DIR = "cache"
 CONFIG = {
@@ -180,6 +192,7 @@ class LiveBot:
         self.state["positions"][key] = {"entry": entry, "size": size, "side": side, "tp": tp, "sl": sl}
         self._order("buy" if side == "long" else "sell", size, entry)
         print(f"  → OPEN {key} {side.upper()} @ ${entry:.2f}  sz={size:.4f}  cash=${self.state['cash']:.2f}")
+        _notify(f"🟢 {self.strategy.upper()} OPEN {key} {side} BNB @ ${entry:.2f}")
 
     def _close(self, key: str, price: float, reason: str):
         p = self.state["positions"].pop(key, None)
@@ -199,6 +212,8 @@ class LiveBot:
         self.state.setdefault("pnl_history", []).append(pnl)
         self._order("sell" if p["side"] == "long" else "buy", p["size"], exit_px)
         print(f"  ← CLOSE {key} {p['side'].upper()} @ ${exit_px:.2f}  PnL=${pnl:.2f}  cash=${self.state['cash']:.2f}  ({reason})")
+        emoji = "🔴" if pnl < 0 else "🟢"
+        _notify(f"{emoji} {self.strategy.upper()} CLOSE {key} {p['side']} BNB @ ${exit_px:.2f} | PnL=${pnl:.2f} ({reason})")
 
     def _report(self):
         val = self.state["cash"]
