@@ -75,6 +75,21 @@ def _cache_valid(path: str) -> bool:
     today = datetime.now(timezone.utc).date()
     return os.path.exists(path) and datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc).date() == today
 
+MARKETS_CACHE = f"{CACHE_DIR}/_markets.pkl"
+
+def _cache_markets(exchange) -> dict | None:
+    now = time.time()
+    if os.path.exists(MARKETS_CACHE) and now - os.path.getmtime(MARKETS_CACHE) < 86400:
+        with open(MARKETS_CACHE, "rb") as f:
+            return pickle.load(f)
+    try:
+        mk = exchange.fetch_markets()
+        with open(MARKETS_CACHE, "wb") as f:
+            pickle.dump(mk, f)
+        return mk
+    except ccxt.NetworkError:
+        return None
+
 def fetch_ohlcv(pair: str, interval: str, days: int, use_cache: bool = True) -> pd.DataFrame:
     """Descarga datos históricos de Binance vía ccxt, con caché."""
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -90,6 +105,9 @@ def fetch_ohlcv(pair: str, interval: str, days: int, use_cache: bool = True) -> 
     proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
     if proxy:
         exchange.proxies = {"https": proxy, "http": proxy}
+    mk = _cache_markets(exchange)
+    if mk:
+        exchange.markets = mk
     since_ms = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
     print(f"{CYAN}⬇  Descargando {pair} [{interval}] — últimos {days} días...{RESET}")
 
